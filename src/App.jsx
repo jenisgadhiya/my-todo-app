@@ -1,33 +1,64 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
+import instance from "./axios";
 
 function TodoApp() {
   const [todos, setTodos] = useState([]);
   const [newTodo, setNewTodo] = useState("");
   const [editIndex, setEditIndex] = useState(null);
 
-  const addTodo = () => {
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  const fetchTodos = async () => {
+    try {
+      const response = await instance.get("/todos");
+      setTodos(response?.data || []);
+    } catch (error) {
+      console.error("Failed to fetch todos:", error);
+    }
+  };
+
+  const addTodo = async () => {
     if (newTodo.trim() !== "") {
       if (editIndex !== null) {
-        const updatedTodos = [...todos];
-        updatedTodos[editIndex] = newTodo;
-        setTodos(updatedTodos);
-        setEditIndex(null);
+        try {
+          const response = await instance.put(`/todos/${todos[editIndex].id}`, {
+            text: newTodo,
+          });
+          const updatedTodos = [...todos];
+          updatedTodos[editIndex] = response.data;
+          setTodos(updatedTodos);
+          setEditIndex(null);
+        } catch (error) {
+          console.error("Failed to edit todo:", error);
+        }
       } else {
-        setTodos([...todos, newTodo]);
+        try {
+          const response = await instance.post("/todos", { text: newTodo });
+          setTodos([...todos, response.data]);
+        } catch (error) {
+          console.error("Failed to add todo:", error);
+        }
       }
       setNewTodo("");
     }
   };
 
   const editTodo = (index) => {
-    setNewTodo(todos[index]);
+    setNewTodo(todos[index]?.text);
     setEditIndex(index);
   };
 
-  const deleteTodo = (index) => {
-    const updatedTodos = todos.filter((_, i) => i !== index);
-    setTodos(updatedTodos);
+  const deleteTodo = async (index) => {
+    try {
+      await instance.delete(`/todos/${todos[index].id}`);
+      const updatedTodos = todos.filter((_, i) => i !== index);
+      setTodos(updatedTodos);
+    } catch (error) {
+      console.error("Failed to delete todo:", error);
+    }
   };
 
   return (
@@ -45,7 +76,7 @@ function TodoApp() {
       <ul>
         {todos?.map((todo, index) => (
           <li key={index} className="todo-item">
-            <span>{todo}</span>
+            <span>{todo?.text}</span>
             <div className="action-wrap">
               <button onClick={() => editTodo(index)} className="edit-button">
                 Edit
